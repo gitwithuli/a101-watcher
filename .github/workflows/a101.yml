@@ -2,7 +2,7 @@ name: A101 Email Watcher (5 min)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # every 5 minutes (UTC)
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -12,12 +12,11 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Show repo contents (sanity check)
+      - name: Show repo contents
         run: |
           pwd
           ls -la
-          echo "---- python file? ----"
-          [ -f watch_a101_email.py ] && echo "✅ found watch_a101_email.py" || (echo "❌ watch_a101_email.py missing" && exit 1)
+          test -f watch_a101_email.py || (echo "watch_a101_email.py missing" && exit 1)
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,31 +28,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install playwright
 
-      - name: Verify Playwright install
+      - name: Install Playwright browsers (with deps)
         run: |
-          python - << 'PY'
-          import sys
-          import playwright
-          print("python:", sys.version)
-          print("playwright:", playwright.__version__)
-          PY
-
-      # Try installing Chromium + OS deps. If the '--with-deps' path isn't supported, fall back.
-      - name: Install Playwright browsers (with deps, then fallback)
-        run: |
-          set -euxo pipefail
-          if python -m playwright install --with-deps chromium; then
-            echo "Installed with --with-deps"
-          else
-            echo "Falling back to apt-get + plain install"
-            sudo apt-get update
-            sudo apt-get install -y libnss3 libx11-xcb1 libxcomposite1 libxcursor1 \
-              libxdamage1 libxi6 libxtst6 libglib2.0-0 libgtk-3-0 libdrm2 libgbm1 \
-              libasound2 libpangocairo-1.0-0 libxrandr2 libxfixes3 libpango-1.0-0 \
-              libcups2 libxkbcommon0 libxshmfence1 libnspr4 libatk1.0-0 \
-              libatk-bridge2.0-0 libatspi2.0-0 fonts-liberation
-            python -m playwright install chromium
-          fi
+          python -m playwright install --with-deps chromium || python -m playwright install chromium
 
       - name: Run watcher
         env:
@@ -67,3 +44,11 @@ jobs:
           TO_EMAIL: ${{ secrets.TOEMAIL }}
           HEADLESS: "1"
         run: python watch_a101_email.py
+
+      - name: Upload artifacts (HTML + screenshot)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a101-debug
+          path: artifacts/
+          if-no-files-found: ignore
