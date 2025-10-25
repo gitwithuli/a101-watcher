@@ -26,7 +26,7 @@ jobs:
         env:
           A101_URL: https://www.a101.com.tr/liste/a101-ekstra-apple
           # HARD-CODED so you don't have to set it elsewhere:
-          SEARCH_TEXT: Apple
+          SEARCH_TEXT: Apple iPhone 17 256 GB Cep
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
