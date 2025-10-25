@@ -2,40 +2,31 @@ name: A101 Email Watcher (5 min)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/5 * * * *"   # every 5 minutes (UTC)
   workflow_dispatch: {}
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    # Use Microsoft's Playwright image (browsers + deps preinstalled)
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.46.1-jammy
+
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
 
+      # sanity check: make sure your script is in the repo root
       - name: Show repo contents
         run: |
           pwd
           ls -la
           test -f watch_a101_email.py || (echo "watch_a101_email.py missing" && exit 1)
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Python deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install playwright
-
-      - name: Install Playwright browsers (with deps)
-        run: |
-          python -m playwright install --with-deps chromium || python -m playwright install chromium
-
       - name: Run watcher
         env:
           A101_URL: https://www.a101.com.tr/liste/a101-ekstra-apple
-          SEARCH_TEXT: Apple 
+          SEARCH_TEXT: Apple iPhone 17 256 GB Cep
           SMTP_HOST: ${{ secrets.SMTPHOST }}
           SMTP_PORT: ${{ secrets.SMTPPORT }}
           SMTP_USER: ${{ secrets.SMTPUSER }}
