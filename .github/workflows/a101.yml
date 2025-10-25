@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout (optional)
+      - name: Check out repo (optional)
         uses: actions/checkout@v4
 
-      # System libraries Chromium needs (works on ubuntu-latest)
+      # System libs needed by Chromium on ubuntu-latest
       - name: Install system deps
         run: |
           sudo apt-get update
@@ -34,22 +34,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install playwright
 
-      - name: Install Playwright browsers
+      - name: Install Playwright browser
         run: |
           python -m playwright install chromium
 
       - name: Run watcher (inline Python)
         env:
-          # Change to 'Apple' for a quick test; switch back after
           A101_URL: https://www.a101.com.tr/liste/a101-ekstra-apple
-          SEARCH_TEXT: Apple iPhone 17 256 GB Cep
-          # Map to the secrets you created (no underscores)
-          SMTP_HOST: ${{ secrets.SMTPHOST }}
-          SMTP_PORT: ${{ secrets.SMTPPORT }}
-          SMTP_USER: ${{ secrets.SMTPUSER }}
-          SMTP_PASS: ${{ secrets.SMTPPASS }}
-          FROM_EMAIL: ${{ secrets.FROMEMAIL }}
-          TO_EMAIL: ${{ secrets.TOEMAIL }}
+          SEARCH_TEXT: Apple
+          # -------- your underscore-named secrets --------
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          # -----------------------------------------------
           HEADLESS: "1"
         run: |
           python - << 'PY'
