@@ -9,9 +9,18 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repo
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Show repo contents (sanity check)
+        run: |
+          pwd
+          ls -la
+          echo "---- python file? ----"
+          [ -f watch_a101_email.py ] && echo "✅ found watch_a101_email.py" || (echo "❌ watch_a101_email.py missing" && exit 1)
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -20,10 +29,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install playwright
 
-      # Install Chromium + required OS packages for Playwright (Python)
-      - name: Install Playwright browsers (with deps)
+      - name: Verify Playwright install
         run: |
-          python -m playwright install --with-deps chromium
+          python - << 'PY'
+          import sys
+          import playwright
+          print("python:", sys.version)
+          print("playwright:", playwright.__version__)
+          PY
+
+      # Try installing Chromium + OS deps. If the '--with-deps' path isn't supported, fall back.
+      - name: Install Playwright browsers (with deps, then fallback)
+        run: |
+          set -euxo pipefail
+          if python -m playwright install --with-deps chromium; then
+            echo "Installed with --with-deps"
+          else
+            echo "Falling back to apt-get + plain install"
+            sudo apt-get update
+            sudo apt-get install -y libnss3 libx11-xcb1 libxcomposite1 libxcursor1 \
+              libxdamage1 libxi6 libxtst6 libglib2.0-0 libgtk-3-0 libdrm2 libgbm1 \
+              libasound2 libpangocairo-1.0-0 libxrandr2 libxfixes3 libpango-1.0-0 \
+              libcups2 libxkbcommon0 libxshmfence1 libnspr4 libatk1.0-0 \
+              libatk-bridge2.0-0 libatspi2.0-0 fonts-liberation
+            python -m playwright install chromium
+          fi
 
       - name: Run watcher
         env:
