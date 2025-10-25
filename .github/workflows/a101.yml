@@ -35,7 +35,7 @@ jobs:
       - name: Run watcher
         env:
           A101_URL: https://www.a101.com.tr/liste/a101-ekstra-apple
-          SEARCH_TEXT: Apple iPhone 17 256 GB Cep
+          SEARCH_TEXT: Apple 
           SMTP_HOST: ${{ secrets.SMTPHOST }}
           SMTP_PORT: ${{ secrets.SMTPPORT }}
           SMTP_USER: ${{ secrets.SMTPUSER }}
