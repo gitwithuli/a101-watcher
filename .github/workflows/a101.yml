@@ -7,49 +7,32 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04   # <= avoid libasound2t64 issues on 24.04
 
     steps:
-      - name: Check out repo (optional)
-        uses: actions/checkout@v4
-
-      # System libs needed by Chromium on ubuntu-latest
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libnss3 libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 \
-            libxtst6 libglib2.0-0 libgtk-3-0 libdrm2 libgbm1 libasound2 \
-            libpangocairo-1.0-0 libxrandr2 libxfixes3 libpango-1.0-0 libcups2 \
-            libxkbcommon0 libxshmfence1 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
-            libatspi2.0-0 fonts-liberation
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install Python deps
+      - name: Install Playwright (Python)
         run: |
           python -m pip install --upgrade pip
           pip install playwright
-
-      - name: Install Playwright browser
-        run: |
-          python -m playwright install chromium
+          # Install Chromium + OS deps (works on Ubuntu 22.04)
+          python -m playwright install --with-deps chromium || python -m playwright install chromium
 
       - name: Run watcher (inline Python)
         env:
           A101_URL: https://www.a101.com.tr/liste/a101-ekstra-apple
+          # HARD-CODED so you don't have to set it elsewhere:
           SEARCH_TEXT: Apple
-          # -------- your underscore-named secrets --------
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
-          # -----------------------------------------------
           HEADLESS: "1"
         run: |
           python - << 'PY'
@@ -60,7 +43,7 @@ jobs:
           from zoneinfo import ZoneInfo
 
           URL         = os.getenv("A101_URL")
-          SEARCH_TEXT = os.getenv("SEARCH_TEXT")
+          SEARCH_TEXT = os.getenv("SEARCH_TEXT")  # hardcoded in workflow env above
           HEADLESS    = os.getenv("HEADLESS", "1") == "1"
 
           SMTP_HOST   = os.getenv("SMTP_HOST")
@@ -82,14 +65,10 @@ jobs:
                   msg["To"] = TO_EMAIL
                   msg.set_content(body)
                   with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as s:
-                      s.ehlo()
-                      s.starttls()
-                      s.login(SMTP_USER, SMTP_PASS)
-                      s.send_message(msg)
+                      s.ehlo(); s.starttls(); s.login(SMTP_USER, SMTP_PASS); s.send_message(msg)
                   log("[info] Email sent.")
               except Exception as e:
-                  log(f"[warn] Email failed: {e}")
-                  traceback.print_exc()
+                  log(f"[warn] Email failed: {e}"); traceback.print_exc()
 
           def check():
               with sync_playwright() as p:
@@ -97,8 +76,7 @@ jobs:
                   ctx = browser.new_context(
                       user_agent=("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
                                   "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"),
-                      locale="tr-TR",
-                      timezone_id="Europe/Istanbul",
+                      locale="tr-TR", timezone_id="Europe/Istanbul",
                       viewport={"width": 1366, "height": 800},
                   )
                   page = ctx.new_page()
@@ -110,28 +88,21 @@ jobs:
 
                       for sel in ['button:has-text("Kabul Et")','button:has-text("Tamam")',
                                   'button:has-text("Kapat")','button:has-text("Accept")']:
-                          try:
-                              page.locator(sel).first.click(timeout=1000)
-                          except Exception:
-                              pass
-                      try:
-                          page.wait_for_load_state("networkidle", timeout=45000)
-                      except PWTimeout:
-                          log("[warn] networkidle timeout; continuing")
+                          try: page.locator(sel).first.click(timeout=1000)
+                          except Exception: pass
+
+                      try: page.wait_for_load_state("networkidle", timeout=45000)
+                      except PWTimeout: log("[warn] networkidle timeout; continuing")
 
                       html = page.content()
                       (ART / "page.html").write_text(html, encoding="utf-8")
-                      try:
-                          page.screenshot(path=str(ART / "page.png"), full_page=True)
-                      except Exception:
-                          pass
+                      try: page.screenshot(path=str(ART / "page.png"), full_page=True)
+                      except Exception: pass
 
                       found = (SEARCH_TEXT in html) or (SEARCH_TEXT.lower() in html.lower())
                       if not found:
-                          try:
-                              found = page.locator(f"text={SEARCH_TEXT}").count() > 0
-                          except Exception:
-                              found = False
+                          try: found = page.locator(f"text={SEARCH_TEXT}").count() > 0
+                          except Exception: found = False
                       return found, status
                   finally:
                       ctx.close(); browser.close()
@@ -147,11 +118,9 @@ jobs:
                   )
               else:
                   log("[info] No match; no email.")
-              sys.exit(0)  # keep the job green so the schedule continues
+              sys.exit(0)  # keep schedule running even if site/email is picky
           except Exception as e:
-              log(f"[error] {e}")
-              traceback.print_exc()
-              sys.exit(0)
+              log(f"[error] {e}"); traceback.print_exc(); sys.exit(0)
           PY
 
       - name: Upload debug artifacts (HTML + screenshot)
